@@ -106,19 +106,19 @@ def install(ctx):
 
 @task
 def remote(
-    ctx, block_size=10, debug=False, consensus_only=True, update=True, aggregate=False
+    ctx, block_size=10, debug=False, consensus_only=False, update=True, aggregate=False
 ):
     """Run benchmarks on AWS/GCP"""
 
     # n = 3f + 2c + k + 1
     configs = [
         {"nodes": 10, "f": 1, "c": 2, "k": 2},  # 3*2+0+3+1=10
-        # {"nodes": 50, "f": 16, "c": 0, "k": 1},  # 3*16+0+1+1=50
+        # {"nodes": 50, "f": 9, "c": 10, "k": 2},  # 3*16+0+1+1=50
     ]
 
     for cfg in configs:
         nodes = cfg["nodes"]
-        rate = 10_000
+        rate = 100_000
 
         bench_params = {
             "faults": 0,
@@ -127,7 +127,7 @@ def remote(
             "collocate": True,
             "rate": [rate],
             "tx_size": 512,
-            "duration": 60,
+            "duration": 180,
             "runs": 1,
             "burst": [50],
             "bls_threshold": 2 * floor(nodes / 3),
@@ -141,13 +141,13 @@ def remote(
             "max_block_size": block_size,
             "consensus_only": consensus_only,
             "timeout_delay": 5_000,  # ms
-            "header_size": 1024_000,  # bytes
-            "max_header_delay": 2000,  # ms
+            "header_size": 512_000,  # bytes
+            "max_header_delay": 200,  # ms
             "gc_depth": 50,  # rounds
             "sync_retry_delay": 5_000,  # ms
             "sync_retry_nodes": 3,  # number of nodes
-            "batch_size": 1024_000,  # bytes
-            "max_batch_delay": 2000,  # ms
+            "batch_size": 512_000,  # bytes
+            "max_batch_delay": 200,  # ms
             "use_vote_aggregator": aggregate,
             "leader_elector": "Simple",
             "threadpool_size": 4,

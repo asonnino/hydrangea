@@ -57,16 +57,17 @@ fi
 echo "ulimit -n 65535" >> /home/ubuntu/.bashrc
 echo "ulimit -n 65535" >> /home/ubuntu/.profile
 
-# Generate the public key corresponding to the GitHub deploy key.
-ssh-keygen -y -f /home/ubuntu/"$DEPLOY_KEY_NAME" > /home/ubuntu/"$DEPLOY_KEY_NAME".pub
-# Move the previously-copied deploy key to its proper location and set it 
-# as the default for GitHub.
-mv /home/ubuntu/"$DEPLOY_KEY_NAME"* /home/ubuntu/.ssh
-echo -e \
-    "Host github.com\n  HostName github.com\n  IdentityFile ~/.ssh/$DEPLOY_KEY_NAME" \
-    > /home/ubuntu/.ssh/config
-eval $(ssh-agent)
-ssh-add /home/ubuntu/.ssh/"$DEPLOY_KEY_NAME"
+# Set up deploy key if provided and exists.
+if [ -n "$DEPLOY_KEY_NAME" ] && [ -f /home/ubuntu/"$DEPLOY_KEY_NAME" ]; then
+    ssh-keygen -y -f /home/ubuntu/"$DEPLOY_KEY_NAME" > /home/ubuntu/"$DEPLOY_KEY_NAME".pub
+    mv /home/ubuntu/"$DEPLOY_KEY_NAME"* /home/ubuntu/.ssh
+    echo -e \
+        "Host github.com\n  HostName github.com\n  IdentityFile ~/.ssh/$DEPLOY_KEY_NAME" \
+        > /home/ubuntu/.ssh/config
+    eval $(ssh-agent)
+    ssh-add /home/ubuntu/.ssh/"$DEPLOY_KEY_NAME"
+    HAVE_AGENT=1
+fi
 
 # Update the distro
 sudo apt-get update
@@ -89,12 +90,14 @@ cd /home/ubuntu
 
 # Clone the repo.
 if ! [ -d "$REPO_NAME" ]; then
-    # git init prevents "kex_exchange_identification: read: Connection reset by peer",
-    # which otherwise occurs sometimes. Cause unknown.
-    (git init; GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git clone "$REPO_URL")
+    if [ -n "$HAVE_AGENT" ]; then
+        (git init; GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git clone "$REPO_URL")
+    else
+        git clone "$REPO_URL"
+    fi
 fi
 
-# Cleanup ssh-agent
-kill "$SSH_AGENT_PID"
+# Cleanup ssh-agent (if started)
+[ -n "$HAVE_AGENT" ] && kill "$SSH_AGENT_PID"
 
 echo "$FUNC complete"
