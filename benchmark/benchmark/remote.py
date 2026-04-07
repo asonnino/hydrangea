@@ -2,7 +2,7 @@
 from collections import OrderedDict
 from paramiko.ssh_exception import PasswordRequiredException, SSHException
 from os import chmod
-from os.path import basename, splitext
+from os.path import basename, exists, splitext
 from time import sleep
 from math import ceil
 from copy import deepcopy
@@ -69,7 +69,7 @@ class Bench:
         return hosts_and_results
 
     def install(self):
-        asyncio.get_event_loop().run_until_complete(self._install())
+        asyncio.new_event_loop().run_until_complete(self._install())
 
     async def _run_client(self, host, cmd: str) -> asyncssh.SSHCompletedProcess:
         async with asyncssh.connect(host) as conn:
@@ -96,11 +96,13 @@ class Bench:
     async def _install_one(self, host, connection, cmd) -> None:
         try:
             async with connection.start_sftp_client() as sftp:
-                # Copy the Deploy Key to /home/ubuntu
-                await sftp.put(self.settings.github_deploy_key_path, preserve=True)
+                # Copy the Deploy Key to /home/ubuntu (if it exists)
+                deploy_key_path = self.settings.github_deploy_key_path
+                if deploy_key_path and exists(deploy_key_path):
+                    await sftp.put(deploy_key_path, preserve=False)
                 # Copy the installation and update scripts to the same location
-                await sftp.put(PathMaker.bootstrap_script_path(), preserve=True)
-                await sftp.put(PathMaker.update_script_path(), preserve=True)
+                await sftp.put(PathMaker.bootstrap_script_path(), preserve=False)
+                await sftp.put(PathMaker.update_script_path(), preserve=False)
             result = await connection.create_process(cmd)
             # Start the installation script as a background process
             return host, result
@@ -109,17 +111,19 @@ class Bench:
         
     async def _install(self):
         Print.info('Installing rust and cloning the repo...')
-        deploy_key = self.settings.github_deploy_key_name
+        deploy_key = self.settings.github_deploy_key_name or 'none'
         bootstrap = [
             'cd /home/ubuntu',
+            'chmod +x bootstrap_node.sh update_node.sh',
             # Run the bootstrap script in the background.
             f'./bootstrap_node.sh {deploy_key} {self.settings.repo_url} {self.settings.repo_name} 2>./install.err 1>./install.out &'
         ]
         install_cmd = ' && '.join(bootstrap)
 
-        # Set the correct permissions for the deploy key. Git will clone
-        # it to the local machine with incorrect settings.
-        chmod(self.settings.github_deploy_key_path, 0o600)
+        # Set the correct permissions for the deploy key (if it exists).
+        deploy_key_path = self.settings.github_deploy_key_path
+        if deploy_key_path and exists(deploy_key_path):
+            chmod(deploy_key_path, 0o600)
         # Ensure install and update scripts are executable.
         chmod(PathMaker.bootstrap_script_path(), 0o700)
         chmod(PathMaker.update_script_path(), 0o700)
@@ -191,7 +195,7 @@ class Bench:
             return host, Exception(f'Failed to kill {host} because of {e}')
     
     def kill(self):
-        asyncio.get_event_loop().run_until_complete(self._kill())
+        asyncio.new_event_loop().run_until_complete(self._kill())
 
     async def _kill(self, hosts_to_connections={}, delete_logs=False):
         assert isinstance(hosts_to_connections, dict)
@@ -267,7 +271,7 @@ class Bench:
             return host, Exception(f'Failed to run {cmd} on {host} because of {e}')
 
     async def _update_one(self, host, connection):
-        deploy_key = self.settings.github_deploy_key_name
+        deploy_key = self.settings.github_deploy_key_name or 'none'
         update = [
             'cd /home/ubuntu',
             # Run the bootstrap script in the background.
@@ -281,12 +285,13 @@ class Bench:
     async def _upload_config(self, connection, id):
         await connection.run(f'{CommandMaker.cleanup()} || true')
         async with connection.start_sftp_client() as sftp:
-            # Copy the Deploy Key to /home/ubuntu
-            await sftp.put(PathMaker.committee_file(), '.', preserve=True)
-            # Copy the installation and update scripts to the same location
-            await sftp.put(PathMaker.ed_key_file(id), '.', preserve=True)
-            await sftp.put(PathMaker.bls_key_file(id), '.', preserve=True)
-            await sftp.put(PathMaker.parameters_file(), '.', preserve=True)
+            await sftp.put(PathMaker.committee_file(), '.', preserve=False)
+            await sftp.put(PathMaker.ed_key_file(id), '.', preserve=False)
+            await sftp.put(PathMaker.bls_key_file(id), '.', preserve=False)
+            await sftp.put(PathMaker.parameters_file(), '.', preserve=False)
+            # Re-upload update script in case it changed.
+            await sftp.put(PathMaker.update_script_path(), '.', preserve=False)
+        await connection.run('chmod +x /home/ubuntu/update_node.sh')
 
     def _generate_config(self, hosts, node_parameters, bench_parameters):
         Print.info('Generating configuration files...')
@@ -437,7 +442,7 @@ class Bench:
         await self._kill(hosts_to_connections=hosts_to_connections)
 
     def download_logs(self, consensus_only, committee=None):
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.new_event_loop().run_until_complete(
             self._download_logs(consensus_only, committee)
         )
 
@@ -632,7 +637,7 @@ class Bench:
         else:
             ips = list(set([x for y in selected_hosts for x in y]))
 
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.new_event_loop().run_until_complete(
             self._run(
                 selected_hosts, 
                 bench_parameters, 
