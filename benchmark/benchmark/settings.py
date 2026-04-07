@@ -1,6 +1,5 @@
 # Copyright(C) Facebook, Inc. and its affiliates.
 from json import load, JSONDecodeError
-from os.path import expanduser
 
 
 class SettingsError(Exception):
@@ -58,15 +57,16 @@ class Settings:
                 self.zones = [zones]
 
         elif cloud_provider == 'aws':
-            if not all([testbed, key_name, key_path, aws_regions]):
+            if not all([testbed, key_name, key_path, aws_regions,
+                        deploy_key_name, deploy_key_path]):
                 raise SettingsError(
-                    'AWS settings require testbed, key, and regions'
+                    'AWS settings require testbed, key, github_deploy_key, and regions'
                 )
             self.testbed = testbed
-            self.github_deploy_key_name = deploy_key_name or ''
-            self.github_deploy_key_path = expanduser(deploy_key_path) if deploy_key_path else ''
+            self.github_deploy_key_name = deploy_key_name
+            self.github_deploy_key_path = deploy_key_path
             self.instance_key_name = key_name
-            self.instance_key_path = expanduser(key_path)
+            self.instance_key_path = key_path
             if isinstance(aws_regions, list):
                 self.aws_regions = aws_regions
             else:
@@ -105,8 +105,8 @@ class Settings:
                     testbed=data.get('testbed', 'hydrangea-bench'),
                     key_name=data['key']['name'],
                     key_path=data['key']['path'],
-                    deploy_key_name=data.get('github_deploy_key', {}).get('name'),
-                    deploy_key_path=data.get('github_deploy_key', {}).get('path'),
+                    deploy_key_name=data['github_deploy_key']['name'],
+                    deploy_key_path=data['github_deploy_key']['path'],
                     aws_regions=data['instances']['regions'],
                 )
             else:

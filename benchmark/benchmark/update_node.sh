@@ -18,14 +18,9 @@ BRANCH_NAME="$3"
 
 FUNC="update"
 
-# Set up deploy key if provided and exists.
-if [ -n "$DEPLOY_KEY_NAME" ] && [ -f /home/ubuntu/.ssh/"$DEPLOY_KEY_NAME" ]; then
-    eval $(ssh-agent)
-    ssh-add /home/ubuntu/.ssh/"$DEPLOY_KEY_NAME"
-    HAVE_AGENT=1
-fi
-
-cd /home/ubuntu/"$REPO_NAME"
+eval $(ssh-agent)
+ssh-add /home/ubuntu/.ssh/"$DEPLOY_KEY_NAME"
+cd /home/ubuntu/"$REPO_NAME" 
 git fetch -f
 git checkout -f "$BRANCH_NAME"
 git pull -f
@@ -37,10 +32,9 @@ cargo build --quiet --release --features benchmark
 cd /home/ubuntu
 rm -f node
 rm -f benchmark_client
-ln -s ./"$REPO_NAME"/target/release/node .
+ln -s ./"$REPO_NAME"/target/release/node . 
 ln -s ./"$REPO_NAME"/target/release/benchmark_client .
 
-# Cleanup ssh-agent (if started)
-[ -n "$HAVE_AGENT" ] && kill "$SSH_AGENT_PID"
+kill "$SSH_AGENT_PID"
 
 echo "$FUNC complete"
