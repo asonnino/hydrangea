@@ -17,7 +17,7 @@ REPO_URL="$2"
 REPO_NAME="$3"
 
 FUNC="install"
-IFACE="ens4"
+IFACE=$(ip route show default | awk '{print $5; exit}')
 INITCWND=99
 
 # Backup limits.conf

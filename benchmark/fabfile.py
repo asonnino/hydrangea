@@ -12,36 +12,36 @@ from math import floor
 
 @task
 def local(ctx, debug=False, consensus_only=True, aggregate=False):
-    ''' Run benchmarks on localhost '''
+    """Run benchmarks on localhost"""
     bench_params = {
-        'faults': 0,
-        'nodes': 15,
-        'workers': 1,
-        'rate': 100_000,
-        'tx_size': 512,
-        'duration': 20,
-        'burst': 50,
-        'bls_threshold' : 2,
+        "faults": 0,
+        "nodes": 15,
+        "workers": 1,
+        "rate": 100_000,
+        "tx_size": 512,
+        "duration": 20,
+        "burst": 50,
+        "bls_threshold": 2,
     }
     node_params = {
-        'n': bench_params['nodes'], # Number of nodes
-        'f': 2, #Number of Byzantine parties tolerated
-        'c': 2, # Number of crash faults,
-        'k': 4, # a parameter
-        'max_block_size': 10,
-        'consensus_only': consensus_only,
-        'timeout_delay': 100,  # ms
-        'header_size': 512_000,  # bytes
-        'max_header_delay': 200,  # ms
-        'gc_depth': 50,  # rounds
-        'sync_retry_delay': 5_000,  # ms
-        'sync_retry_nodes': 3,  # number of nodes
-        'batch_size': 512_000,  # bytes
-        'max_batch_delay': 200,  # ms
-        'use_vote_aggregator': aggregate,
+        "n": bench_params["nodes"],  # Number of nodes
+        "f": 2,  # Number of Byzantine parties tolerated
+        "c": 2,  # Number of crash faults,
+        "k": 4,  # a parameter
+        "max_block_size": 10,
+        "consensus_only": consensus_only,
+        "timeout_delay": 100,  # ms
+        "header_size": 512_000,  # bytes
+        "max_header_delay": 200,  # ms
+        "gc_depth": 50,  # rounds
+        "sync_retry_delay": 5_000,  # ms
+        "sync_retry_nodes": 3,  # number of nodes
+        "batch_size": 512_000,  # bytes
+        "max_batch_delay": 200,  # ms
+        "use_vote_aggregator": aggregate,
         # FailureBestCase | FailureMidCase | FailureWorstCase | FairSuccession | Simple
-        'leader_elector': 'Simple',
-        'threadpool_size' : 4,
+        "leader_elector": "Simple",
+        "threadpool_size": 4,
     }
     try:
         ret = LocalBench(bench_params, node_params).run(debug, consensus_only)
@@ -52,7 +52,7 @@ def local(ctx, debug=False, consensus_only=True, aggregate=False):
 
 @task
 def create(ctx, nodes=2):
-    ''' Create a testbed'''
+    """Create a testbed"""
     try:
         InstanceManager.make().create_instances(nodes)
     except BenchError as e:
@@ -61,7 +61,7 @@ def create(ctx, nodes=2):
 
 @task
 def destroy(ctx):
-    ''' Destroy the testbed '''
+    """Destroy the testbed"""
     try:
         InstanceManager.make().delete_instances()
     except BenchError as e:
@@ -70,7 +70,7 @@ def destroy(ctx):
 
 @task
 def start(ctx):
-    ''' Start at most `max` machines per data center '''
+    """Start at most `max` machines per data center"""
     try:
         InstanceManager.make().start_instances()
     except BenchError as e:
@@ -79,7 +79,7 @@ def start(ctx):
 
 @task
 def stop(ctx):
-    ''' Stop all machines '''
+    """Stop all machines"""
     try:
         InstanceManager.make().stop_instances()
     except BenchError as e:
@@ -88,7 +88,7 @@ def stop(ctx):
 
 @task
 def info(ctx):
-    ''' Display connect information about all the available machines '''
+    """Display connect information about all the available machines"""
     try:
         InstanceManager.make().print_info()
     except BenchError as e:
@@ -97,7 +97,7 @@ def info(ctx):
 
 @task
 def install(ctx):
-    ''' Install the codebase on all machines '''
+    """Install the codebase on all machines"""
     try:
         Bench(ctx).install()
     except BenchError as e:
@@ -105,77 +105,73 @@ def install(ctx):
 
 
 @task
-def create_firewall(ctx):
-    ''' Create firewall rules '''
-    try:
-        InstanceManager.make().create_firewall_rule()
-    except BenchError as e:
-        Print.error(e)
+def remote(
+    ctx, block_size=10, debug=False, consensus_only=True, update=True, aggregate=False
+):
+    """Run benchmarks on AWS/GCP"""
 
+    # n = 3f + 2c + k + 1
+    configs = [
+        {"nodes": 10, "f": 1, "c": 2, "k": 2},  # 3*2+0+3+1=10
+        # {"nodes": 50, "f": 16, "c": 0, "k": 1},  # 3*16+0+1+1=50
+    ]
 
-@task
-def remote(ctx, block_size=10, debug=False, consensus_only=True, update=True, aggregate=False):
-    ''' Run benchmarks on AWS '''
-    
-    bench_params = {
-        'faults': 0,
-        'nodes': [11],
-        'workers': 1,
-        'collocate': True,
-        'rate': [100_000],
-        'tx_size': 512,
-        'duration': 60,
-        'runs': 1,
-        'burst': [50],
-    }
+    for cfg in configs:
+        nodes = cfg["nodes"]
+        rate = 10_000
 
-    nodes = bench_params['nodes'][0]
-    bench_params['bls_threshold'] = 2 * floor(nodes/3)
+        bench_params = {
+            "faults": 0,
+            "nodes": [nodes],
+            "workers": 1,
+            "collocate": True,
+            "rate": [rate],
+            "tx_size": 512,
+            "duration": 60,
+            "runs": 1,
+            "burst": [50],
+            "bls_threshold": 2 * floor(nodes / 3),
+        }
 
-    precision = 20
-    nodes = bench_params['nodes'][0]
-    rate = 2000 * nodes * precision
-    bench_params['rate'] = [rate]
- 
-    node_params = {
-        'n': bench_params['nodes'][0], # Number of nodes
-        'f': 2, #Number of Byzantine parties tolerated
-        'c': 0, # Number of crash faults,
-        'k': 4, # a parameter
-        'max_block_size': block_size,
-        'consensus_only': consensus_only,
-        'timeout_delay': 5_000,  # ms
-        'header_size': 1024_000,  # bytes
-        'max_header_delay': 2000,  # ms
-        'gc_depth': 50,  # rounds
-        'sync_retry_delay': 5_000,  # ms
-        'sync_retry_nodes': 3,  # number of nodes
-        'batch_size': 1024_000,  # bytes
-        'max_batch_delay': 2000,  # ms
-        'use_vote_aggregator': aggregate,
-        # FailureBestCase | FailureMidCase | FailureWorstCase | FairSuccession | Simple
-        'leader_elector': 'Simple',
-        'threadpool_size' : 4,
-    }
+        node_params = {
+            "n": nodes,
+            "f": cfg["f"],
+            "c": cfg["c"],
+            "k": cfg["k"],
+            "max_block_size": block_size,
+            "consensus_only": consensus_only,
+            "timeout_delay": 5_000,  # ms
+            "header_size": 1024_000,  # bytes
+            "max_header_delay": 2000,  # ms
+            "gc_depth": 50,  # rounds
+            "sync_retry_delay": 5_000,  # ms
+            "sync_retry_nodes": 3,  # number of nodes
+            "batch_size": 1024_000,  # bytes
+            "max_batch_delay": 2000,  # ms
+            "use_vote_aggregator": aggregate,
+            "leader_elector": "Simple",
+            "threadpool_size": 4,
+        }
 
-    try:
-        Bench(ctx).run(bench_params, node_params, debug, consensus_only, update)
-    except BenchError as e:
-        Print.error(e)
+        try:
+            Bench(ctx).run(bench_params, node_params, debug, consensus_only, update)
+        except BenchError as e:
+            Print.error(e)
+
 
 @task
 def run_clients(ctx, debug=False, consensus_only=False, update=False, aggregate=False):
-    '''Run the clients'''
+    """Run the clients"""
     bench_params = {
-        'faults': 0,
-        'nodes': [4],
-        'workers': 1,
-        'collocate': True,
-        'rate': [40_000],
-        'tx_size': 512,
-        'duration': 20,
-        'runs': 1,
-        'burst': 60,
+        "faults": 0,
+        "nodes": [4],
+        "workers": 1,
+        "collocate": True,
+        "rate": [40_000],
+        "tx_size": 512,
+        "duration": 20,
+        "runs": 1,
+        "burst": 60,
     }
     try:
         Bench(ctx).run_clients(bench_params, debug, consensus_only, update)
@@ -185,24 +181,24 @@ def run_clients(ctx, debug=False, consensus_only=False, update=False, aggregate=
 
 @task
 def plot(ctx):
-    ''' Plot performance using the logs generated by "fab remote" '''
+    """Plot performance using the logs generated by "fab remote" """
     plot_params = {
-        'faults': [0],
-        'nodes': [10],
-        'workers': [1, 4, 7, 10],
-        'collocate': True,
-        'tx_size': 512,
-        'max_latency': [2_000, 2_500]
+        "faults": [0],
+        "nodes": [10],
+        "workers": [1, 4, 7, 10],
+        "collocate": True,
+        "tx_size": 512,
+        "max_latency": [2_000, 2_500],
     }
     try:
         Ploter.plot(plot_params)
     except PlotError as e:
-        Print.error(BenchError('Failed to plot performance', e))
+        Print.error(BenchError("Failed to plot performance", e))
 
 
 @task
 def kill(ctx):
-    ''' Stop execution on all machines '''
+    """Stop execution on all machines"""
     try:
         Bench(ctx).kill()
     except BenchError as e:
@@ -210,16 +206,19 @@ def kill(ctx):
 
 
 @task
-def logs(ctx, dir='./logs', consensus_only=False, debug=False):
-    ''' Print a summary of the logs '''
+def logs(ctx, dir="./logs", consensus_only=False, debug=False):
+    """Print a summary of the logs"""
     try:
-        print(LogParser.process(dir, consensus_only=consensus_only, debug=debug).result())
+        print(
+            LogParser.process(dir, consensus_only=consensus_only, debug=debug).result()
+        )
     except ParseError as e:
-        Print.error(BenchError('Failed to parse logs', e))
+        Print.error(BenchError("Failed to parse logs", e))
+
 
 @task
 def download_logs(ctx, consensus_only=False):
-    ''' Download logs from the currently running network '''
+    """Download logs from the currently running network"""
     try:
         Bench(ctx).download_logs(consensus_only)
     except BenchError as e:
