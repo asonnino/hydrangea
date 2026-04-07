@@ -118,7 +118,7 @@ def remote(
 
     for cfg in configs:
         nodes = cfg["nodes"]
-        rate = 100_000
+        rate = 50_000
 
         bench_params = {
             "faults": 0,
