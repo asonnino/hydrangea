@@ -112,13 +112,13 @@ def remote(
 
     # n = 3f + 2c + k + 1
     configs = [
-        {"nodes": 10, "f": 1, "c": 2, "k": 2},  # 3*2+0+3+1=10
-        # {"nodes": 50, "f": 9, "c": 10, "k": 2},  # 3*16+0+1+1=50
+        # {"nodes": 10, "f": 1, "c": 2, "k": 2},
+        {"nodes": 50, "f": 9, "c": 10, "k": 2},
     ]
 
     for cfg in configs:
         nodes = cfg["nodes"]
-        rate = 50_000
+        rate = 5000
 
         bench_params = {
             "faults": 0,
@@ -140,7 +140,7 @@ def remote(
             "k": cfg["k"],
             "max_block_size": block_size,
             "consensus_only": consensus_only,
-            "timeout_delay": 5_000,  # ms
+            "timeout_delay": 1_000,  # ms
             "header_size": 512_000,  # bytes
             "max_header_delay": 200,  # ms
             "gc_depth": 50,  # rounds
